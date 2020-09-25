@@ -53,7 +53,7 @@ class DeepClustering(nn.Module):
         return x
 
 
-def loss(mix_embs,class_targets,non_silent,num_spks,device):
+def loss(embs_mix,class_targets,non_silent,num_spks,device):
     '''
     mix_wave: B x TF x D
     target_waves: B x T x F
@@ -68,12 +68,12 @@ def loss(mix_embs,class_targets,non_silent,num_spks,device):
     non_slient = non_silent.view(B, T*F, 1)
 
 
-    mix_embs = mix_embs * non_silent
+    embs_mix = embs_mix * non_silent
     target_embs = target_embs * non_silent
 
-    vTv = torch.norm(torch.bmm(torch.transpose(mix_embs,1,2),mix_embs),p=2)**2
+    vTv = torch.norm(torch.bmm(torch.transpose(embs_mix,1,2),embs_mix),p=2)**2
 
-    vTy = torch.norm(torch.bmm(torch.transpose(mix_embs,1,2),target_embs),p=2)**2
+    vTy = torch.norm(torch.bmm(torch.transpose(embs_mix,1,2),target_embs),p=2)**2
 
     yTy = torch.norm(torch.bmm(torch.transpose(target_embs,1,2),target_embs),p=2)**2
 

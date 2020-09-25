@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
-import utils
+from Learning import utils
 import yaml
 import matplotlib.pyplot as plt
 
@@ -27,12 +27,13 @@ class transform():
 
         return log_pow_mix_normalized, non_silent
 
+
 class wav_dataset(Dataset):
     def __init__(self,config,path_scp_mix,path_scp_targets):
         self.wp = utils.wav_processor(config)
 
-        self.scp_mix = utils.read_scp(path_scp_mix)
-        self.scp_targets = [utils.read_scp(path_scp_target) \
+        self.scp_mix = self.wp.read_scp(path_scp_mix)
+        self.scp_targets = [self.wp.read_scp(path_scp_target) \
                                 for path_scp_target in path_scp_targets]
                   
         self.keys = [key for key in self.scp_mix.keys()]
@@ -51,6 +52,7 @@ class wav_dataset(Dataset):
         
         return self.trans(y_mix,y_targets)
 
+
 def padding(batch):
     batch_log_pow_mix,batch_class_targets,batch_non_silent = [],[],[]
     for log_pow_mix,class_targets,non_silent in batch:
@@ -65,11 +67,30 @@ def padding(batch):
     return batch_log_pow_mix,batch_class_targets,batch_non_silent
 
 
+def make_dataloader(config):
+    path_scp_tr_mix = config['dataloader']['train']['path_scp_mix']
+    path_scp_tr_targets = config['dataloader']['train']['path_scp_targets']
+    tr_dataset  = wav_dataset(config, path_scp_tr_mix, path_scp_tr_targets)
+
+    batch_size = config['dataloader']['batch_size']
+    num_workers = config['dataloader']['num_workers']
+    shuffle = config['dataloader']['shuffle']
+
+    tr_dataloader = DataLoader(tr_dataset,batch_size=batch_size,num_workers=num_workers,
+                                shuffle=shuffle,collate_fn=padding)
+    
+    path_scp_cv_mix = config['dataloader']['val']['path_scp_mix']
+    path_scp_cv_targets = config['dataloader']['val']['path_scp_targets']
+    cv_dataset  = wav_dataset(config, path_scp_cv_mix, path_scp_cv_targets)
+
+    cv_dataloader = DataLoader(cv_dataset,batch_size=batch_size,num_workers=num_workers,
+                                shuffle=shuffle,collate_fn=padding)
+    return tr_dataloader, cv_dataloader
 
 
 
 if __name__=="__main__":
-    with open('config.yaml', 'r') as yml:
+    with open('../config.yaml', 'r') as yml:
         config = yaml.safe_load(yml)
 
     path_scp_mix = config['dataloader']['train']['path_scp_mix']

@@ -1,0 +1,57 @@
+name: DeepClustering_config
+num_spks: 2
+gpu: True
+
+dataloader:
+  train:
+    path_scp_mix: ./scp/tr_mix.scp
+    path_scp_targets: [./scp/tr_s1.scp,
+                        ./scp/tr_s2.scp]
+
+  val:
+    path_scp_mix: ./scp/cv_mix.scp
+    path_scp_targets: [./scp/cv_s1.scp,
+                        ./scp/cv_s2.scp]
+  batch_size: 20
+  num_workers: 12
+  shuffle: True
+
+test:
+  path_scp_mix: ./scp/tt_mix.scp
+  path_model: ./checkpoint/DeepClustering_config/last.pt
+  path_separated: ./separated
+
+transform:
+  n_fft: 256
+  hop_length: 64
+  win_length: 256
+  window: 'hann'
+  center: False
+  sr: 8000
+  mask_threshold : 40
+  path_normalize: ./dict_normalize.ark
+
+network:
+  hidden_size: 300
+  num_layer: 2
+  emb_D: 40
+  dropout: 0.5
+  bidirectional: True
+  activation: Tanh
+
+train:
+  epoch: 100
+  early_stop: 10
+  path: checkpoint
+  is_gpu: False
+
+optim:
+  name: RMSprop
+  lr: 1.0e-5
+  momentum: 0.9
+  weight_decay: 0
+  clip_norm: 200
+
+resume:
+  state: False
+  path: ./checkpoint

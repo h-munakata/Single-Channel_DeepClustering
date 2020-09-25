@@ -1,9 +1,8 @@
 import torch
 from sklearn.cluster import KMeans
-import model
+from Learning import model,utils
+from Learning.dataloader import transform,padding
 import numpy as np
-from dataloader import transform,padding
-import utils
 import os
 import yaml
 from tqdm import tqdm

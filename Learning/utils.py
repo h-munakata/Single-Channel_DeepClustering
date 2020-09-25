@@ -56,44 +56,40 @@ class wav_processor:
         librosa.output.write_wav(file_path, y, self.sr)
 
 
+    def read_scp(self,scp_path):
+        files = open(scp_path, 'r')
+        lines = files.readlines()
+        scp_wav = {}
+        for line in lines:
+            line = line.split()
+            if line[0] in scp_wav.keys():
+                raise ValueError
+            scp_wav[line[0]] = line[1]
+        return scp_wav
 
 
+# if __name__=="__main__":
+#     with open('config.yaml', 'r') as yml:
+#         config = yaml.safe_load(yml)
 
+#     wav_path = "test.wav"
+#     wp = wav_processor(config)
+#     y, sr = librosa.load(wav_path, 8000)
 
-def read_scp(scp_path):
-    files = open(scp_path, 'r')
-    lines = files.readlines()
-    wav = {}
-    for line in lines:
-        line = line.split()
-        if line[0] in wav.keys():
-            raise ValueError
-        wav[line[0]] = line[1]
-    return wav
+#     plt.subplot(2,2,1)
+#     plt.plot(y)
 
+#     plt.subplot(2,2,2)
+#     Y = wp.stft(y)
+#     Y_pow = wp.log_power(Y)
+#     plt.imshow(Y_pow.T,origin = "lower")
 
-if __name__=="__main__":
-    with open('config.yaml', 'r') as yml:
-        config = yaml.safe_load(yml)
+#     plt.subplot(2,2,3)
+#     Y_norm = wp.apply_normalize(Y_pow)
+#     plt.imshow(Y_norm.T,origin = "lower")
 
-    wav_path = "test.wav"
-    wp = wav_processor(config)
-    y, sr = librosa.load(wav_path, 8000)
+#     plt.subplot(2,2,4)
+#     non_silent = wp.non_silent(Y)
+#     plt.imshow((non_silent).T,origin = "lower")
 
-    plt.subplot(2,2,1)
-    plt.plot(y)
-
-    plt.subplot(2,2,2)
-    Y = wp.stft(y)
-    Y_pow = wp.log_power(Y)
-    plt.imshow(Y_pow.T,origin = "lower")
-
-    plt.subplot(2,2,3)
-    Y_norm = wp.apply_normalize(Y_pow)
-    plt.imshow(Y_norm.T,origin = "lower")
-
-    plt.subplot(2,2,4)
-    non_silent = wp.non_silent(Y)
-    plt.imshow((non_silent).T,origin = "lower")
-
-    plt.savefig("test_utils.png")
+#     plt.savefig("test_utils.png")

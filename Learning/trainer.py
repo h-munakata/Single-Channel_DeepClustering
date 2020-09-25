@@ -1,5 +1,5 @@
 import sys
-from model import loss
+from Learning.model import loss
 import torch
 import os
 import yaml
@@ -9,54 +9,63 @@ import tensorboardX as tbx
 
 
 class Trainer():
-    def __init__(self,train_dataloader,val_dataloader,dpcl,optimizer,config):
+    def __init__(self,train_dataloader,val_dataloader,dpcl,config):
+        self.cur_epoch = 0
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
         self.num_spks = config['num_spks']
-        self.cur_epoch = 0
         self.total_epoch = config['train']['epoch']
         self.early_stop = config['train']['early_stop']
         self.checkpoint = config['train']['path']
         self.name = config['name']
 
-        # about setting of machine
-        if config['train']['is_gpu']:
-            self.device = torch.device('cuda:0')
-            self.dpcl = dpcl.to(self.device)
-        else:
-            self.device = torch.device('cpu')
-            self.dpcl = dpcl.to(self.device)
+        # setting about optimizer
+        opt_name = config['optim']['name']
+        weight_decay = config['optim']['weight_decay']
+        lr = config['optim']['lr']
+        momentum = config['optim']['momentum']
 
-        
-        
-        # about restart
-        if config['resume']['state']:    
-            ckp = torch.load(config['resume']['path'],map_location='cpu')
-            self.cur_epoch = ckp['epoch']
-            self.dpcl = dpcl.load_state_dict(ckp['model_state_dict']).to(self.device)
-            self.optimizer = optimizer.load_state_dict(ckp['optim_state_dict'])
+        optimizer = getattr(torch.optim, opt_name)
+        if opt_name == 'Adam':
+            self.optimizer = optimizer(dpcl.parameters(), lr=lr, weight_decay=weight_decay)
         else:
-            self.dpcl = dpcl.to(self.device)
-            self.optimizer = optimizer
+            self.optimizer = optimizer(dpcl.parameters(), lr=lr, weight_decay=weight_decay, momentum=momentum)
         
         if config['optim']['clip_norm']:
             self.clip_norm = config['optim']['clip_norm']
         else:
             self.clip_norm = 0
+
+        # setting about machine
+        if config['train']['is_gpu']:
+            self.device = torch.device('cuda:0')
+        else:
+            self.device = torch.device('cpu')
+        self.dpcl = dpcl.to(self.device)
+        
+        
+        # setting about restart
+        if config['resume']['state']:    
+            ckp = torch.load(config['resume']['path'],map_location='cpu')
+            self.cur_epoch = ckp['epoch']
+            self.dpcl = dpcl.load_state_dict(ckp['model_state_dict']).to(self.device)
+            self.optimizer = optimizer.load_state_dict(ckp['optim_state_dict'])
         
 
     def train(self, epoch):
         self.dpcl.train()
         num_batchs = len(self.train_dataloader)
         total_loss = 0.0
+
         print('epoch{}:train'.format(epoch))
+
         for log_pow_mix, class_targets, non_silent in tqdm(self.train_dataloader):
             log_pow_mix = log_pow_mix.to(self.device)
             class_targets = class_targets.to(self.device)
             non_silent = non_silent.to(self.device)
 
-            mix_embs = self.dpcl(log_pow_mix)
-            epoch_loss = loss(mix_embs, class_targets, non_silent, self.num_spks, self.device)
+            embs_mix = self.dpcl(log_pow_mix)
+            epoch_loss = loss(embs_mix, class_targets, non_silent, self.num_spks, self.device)
             total_loss += epoch_loss.item()
 
             self.optimizer.zero_grad()
@@ -82,9 +91,9 @@ class Trainer():
                 class_targets = class_targets.to(self.device)
                 non_silent = non_silent.to(self.device)
 
-                mix_embs = self.dpcl(log_pow_mix)
+                embs_mix = self.dpcl(log_pow_mix)
 
-                epoch_loss = loss(mix_embs, class_targets, non_silent, self.num_spks, self.device)
+                epoch_loss = loss(embs_mix, class_targets, non_silent, self.num_spks, self.device)
                 total_loss += epoch_loss.item()
     
         total_loss = total_loss/num_batchs
@@ -95,9 +104,9 @@ class Trainer():
         train_loss = []
         val_loss = []
 
-        writer = tbx.SummaryWriter("test_tbx/exp1")
+        writer = tbx.SummaryWriter("tbx/")
 
-        with torch.cuda.device(0):
+        with torch.cuda.device(self.device):
             self.save_checkpoint(self.cur_epoch,best=False)
             v_loss = self.validation(self.cur_epoch)
             best_loss = v_loss
