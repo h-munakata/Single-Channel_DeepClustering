@@ -55,7 +55,6 @@ class wav_processor:
         file_path = os.path.join(dir_path, filename)
         librosa.output.write_wav(file_path, y, self.sr)
 
-
     def read_scp(self,scp_path):
         files = open(scp_path, 'r')
         lines = files.readlines()
@@ -67,29 +66,43 @@ class wav_processor:
             scp_wav[line[0]] = line[1]
         return scp_wav
 
+    def calc_sdr(self,Y,Y_hat):
 
-# if __name__=="__main__":
-#     with open('config.yaml', 'r') as yml:
-#         config = yaml.safe_load(yml)
+        Y_sum = np.sum(np.sum((np.abs(Y))**2,1),0)
+        Y_hat_sum = np.sum(np.sum((np.abs(Y_hat))**2,1),0)
+        
+        c = (Y_sum/Y_hat_sum)**(0.5)
 
-#     wav_path = "test.wav"
-#     wp = wav_processor(config)
-#     y, sr = librosa.load(wav_path, 8000)
+        dist = np.sum(np.sum((np.abs(Y) - c*np.abs(Y_hat))**2,1),0)
+        sdr = 10*np.log10(Y_sum/dist)
 
-#     plt.subplot(2,2,1)
-#     plt.plot(y)
+        return sdr
 
-#     plt.subplot(2,2,2)
-#     Y = wp.stft(y)
-#     Y_pow = wp.log_power(Y)
-#     plt.imshow(Y_pow.T,origin = "lower")
+    def calc_si_sdr(self,Y,Y_hat):
 
-#     plt.subplot(2,2,3)
-#     Y_norm = wp.apply_normalize(Y_pow)
-#     plt.imshow(Y_norm.T,origin = "lower")
+        Y_sum = np.sum(np.sum((np.abs(Y))**2,1),0)
+        Y_hat_sum = np.sum(np.sum((np.abs(Y_hat))**2,1),0)
+        
+        c = (Y_sum/Y_hat_sum)**(0.5)
 
-#     plt.subplot(2,2,4)
-#     non_silent = wp.non_silent(Y)
-#     plt.imshow((non_silent).T,origin = "lower")
+        dist = np.sum(np.sum((np.abs(Y) - c*np.abs(Y_hat))**2,1),0)
+        sdr = 10*np.log10(Y_sum/dist)
 
-#     plt.savefig("test_utils.png")
+        return sdr
+
+    
+    def eval_sdr(self,Y_list,Y_hat_list):
+        num_spks = len(Y_list)
+
+        sdr = []
+        for i in range(num_spks):
+            sdr_i = -np.inf
+            for j in range(num_spks):
+                sdr_j = self.calc_sdr(Y_list[i], Y_hat_list[j])
+                if sdr_j > sdr_i:
+                    sdr_i = sdr_j
+            sdr.append(sdr_i)
+
+        return sdr
+
+

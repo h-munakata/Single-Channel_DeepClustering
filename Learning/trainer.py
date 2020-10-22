@@ -6,6 +6,7 @@ import yaml
 from tqdm import tqdm
 import logging
 import tensorboardX as tbx
+import datetime
 
 
 class Trainer():
@@ -13,6 +14,8 @@ class Trainer():
         self.cur_epoch = 0
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
+
+        self.config = config
         self.num_spks = config['num_spks']
         self.total_epoch = config['train']['epoch']
         self.early_stop = config['train']['early_stop']
@@ -37,27 +40,28 @@ class Trainer():
             self.clip_norm = 0
 
         # setting about machine
-        if config['train']['is_gpu']:
-            self.device = torch.device('cuda:0')
-        else:
-            self.device = torch.device('cpu')
+
+        self.device = torch.device(config['gpu'])
         self.dpcl = dpcl.to(self.device)
+        print('Load on:',config['gpu'])
+        if config['multi_gpu']:
+            self.dpcl = torch.nn.DataParallel(dpcl)
+            print('Using multi GPU')
+
         
         
         # setting about restart
         if config['resume']['state']:    
-            ckp = torch.load(config['resume']['path'],map_location='cpu')
+            ckp = torch.load(config['resume']['path'])
             self.cur_epoch = ckp['epoch']
-            self.dpcl = dpcl.load_state_dict(ckp['model_state_dict']).to(self.device)
-            self.optimizer = optimizer.load_state_dict(ckp['optim_state_dict'])
+            self.dpcl.load_state_dict(ckp['model_state_dict'])
+            self.optimizer.load_state_dict(ckp['optim_state_dict'])
         
 
     def train(self, epoch):
         self.dpcl.train()
         num_batchs = len(self.train_dataloader)
         total_loss = 0.0
-
-        print('epoch{}:train'.format(epoch))
 
         for log_pow_mix, class_targets, non_silent in tqdm(self.train_dataloader):
             log_pow_mix = log_pow_mix.to(self.device)
@@ -84,7 +88,7 @@ class Trainer():
         self.dpcl.eval()
         num_batchs = len(self.val_dataloader)
         total_loss = 0.0
-        print('epoch{}:validation'.format(epoch))
+        logging.info('epoch{}:validation'.format(epoch))
         with torch.no_grad():
             for log_pow_mix, class_targets, non_silent in tqdm(self.val_dataloader):
                 log_pow_mix = log_pow_mix.to(self.device)
@@ -104,8 +108,10 @@ class Trainer():
         train_loss = []
         val_loss = []
 
-        writer = tbx.SummaryWriter("tbx/")
-
+        dt_now = datetime.datetime.now()
+        writer = tbx.SummaryWriter("tbx/" + dt_now.isoformat())
+        logging.basicConfig(filename='./checkpoint/DeepClustering_config/train_log.log', level=logging.DEBUG)
+        logging.info(self.config)
         with torch.cuda.device(self.device):
             self.save_checkpoint(self.cur_epoch,best=False)
             v_loss = self.validation(self.cur_epoch)
@@ -115,10 +121,12 @@ class Trainer():
             while self.cur_epoch < self.total_epoch:
                 self.cur_epoch += 1
                 t_loss = self.train(self.cur_epoch)
+                logging.info('epoch{0}:train_loss{1}'.format(epoch,t_loss))
                 v_loss = self.validation(self.cur_epoch)
+                logging.info('epoch{0}:train_loss{1}'.format(epoch,v_loss))
 
-                writer.add_scalar('t_loss',t_loss,self.cur_epoch)
-                writer.add_scalar('v_loss',v_loss,self.cur_epoch)
+                writer.add_scalar('t_loss', t_loss, self.cur_epoch)
+                writer.add_scalar('v_loss', v_loss, self.cur_epoch)
 
                 train_loss.append(t_loss)
                 val_loss.append(v_loss)

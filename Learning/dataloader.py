@@ -9,8 +9,9 @@ import matplotlib.pyplot as plt
 
 class transform():
     def __init__(self,config):
+        self.num_spks = config['num_spks']
         self.wp = utils.wav_processor(config)
-
+        self.mask = config['dataloader']['train']['mask']
     def __call__(self,y_mix,y_targets=None):
         Y_mix = self.wp.stft(y_mix)
         log_pow_mix = self.wp.log_power(Y_mix)
@@ -20,9 +21,35 @@ class transform():
 
         if y_targets:
             Y_targets = [self.wp.stft(y_target) for y_target in y_targets]
-            log_pow_targets = [self.wp.log_power(Y_target) for Y_target in Y_targets]
-            class_targets = np.argmax(np.array(log_pow_targets), axis=0)
+            pow_targets = [np.abs(Y_target) for Y_target in Y_targets]
 
+            T,F = non_silent.shape
+            class_targets = np.zeros([T*F,self.num_spks])
+
+            if self.mask=='IBM':
+                mask_targets = np.argmax(np.array(pow_targets), axis=0)
+                for i in range(self.num_spks):
+                    mask_i = np.ones(non_silent.shape) * (mask_targets==i)
+                    class_targets[:,i] = mask_i.reshape([T*F])
+
+
+            elif self.mask=='IRM':
+                eps = np.finfo(np.float64).eps
+                sum_pow_targets = sum(pow_targets)
+                
+                for i,pow_target in enumerate(pow_targets):
+                    class_targets[:,i] = (pow_target / (sum_pow_targets + eps)).reshape([T*F])
+                print(class_targets)
+            
+            elif self.mask=='WM':
+                eps = np.finfo(np.float64).eps
+                pow_targets = [np.power(pow_target,2) for pow_target in pow_targets]
+                sum_pow_targets = sum(pow_targets)
+
+                for i,pow_target in enumerate(pow_targets):
+                    class_targets[:,i] = (pow_target / (sum_pow_targets + eps)).reshape([T*F])
+                        
+                    
             return log_pow_mix_normalized, class_targets, non_silent
 
         return log_pow_mix_normalized, non_silent
@@ -86,20 +113,3 @@ def make_dataloader(config):
     cv_dataloader = DataLoader(cv_dataset,batch_size=batch_size,num_workers=num_workers,
                                 shuffle=shuffle,collate_fn=padding)
     return tr_dataloader, cv_dataloader
-
-
-
-if __name__=="__main__":
-    with open('../config.yaml', 'r') as yml:
-        config = yaml.safe_load(yml)
-
-    path_scp_mix = config['dataloader']['train']['path_scp_mix']
-    path_scp_targets = config['dataloader']['train']['path_scp_targets']
-    dataset = wav_dataset(config,path_scp_mix,path_scp_targets)
-
-    dataloader = DataLoader(dataset,batch_size=5,collate_fn=padding)
-
-    for batch in dataloader:
-        print('log_pow_mix',batch[0].shape)
-        print('class_targets',batch[1].shape)
-        print('non_silent',batch[2].shape)

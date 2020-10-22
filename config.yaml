@@ -1,32 +1,40 @@
 name: DeepClustering_config
 num_spks: 2
-gpu: True
+gpu: cuda:1
+multi_gpu: False
 
+# dir_wav_root: /data1/h_munakata/wsj0/2speakers/min/
+dir_wav_root: /data1/h_munakata/wsj0/2speakers/min/
 dataloader:
   train:
     path_scp_mix: ./scp/tr_mix.scp
     path_scp_targets: [./scp/tr_s1.scp,
                         ./scp/tr_s2.scp]
+    mask: IBM
 
   val:
     path_scp_mix: ./scp/cv_mix.scp
     path_scp_targets: [./scp/cv_s1.scp,
                         ./scp/cv_s2.scp]
   batch_size: 20
-  num_workers: 12
+  num_workers: 3
   shuffle: True
 
 test:
   path_scp_mix: ./scp/tt_mix.scp
-  path_model: ./checkpoint/DeepClustering_config/last.pt
-  path_separated: ./separated
+  path_scp_targets: [./scp/tt_s1.scp,
+                    ./scp/tt_s2.scp]
+  path_model: /home/h_munakata/DeepClustering_for_Speech_Separation/checkpoint/DeepClustering_config/best.pt
+  path_separated: ./result_test
+  type_mask: hard
+  eval_index: SI-SDR
 
 transform:
   n_fft: 256
   hop_length: 64
   win_length: 256
   window: 'hann'
-  center: False
+  center: True
   sr: 8000
   mask_threshold : 40
   path_normalize: ./dict_normalize.ark
@@ -40,10 +48,10 @@ network:
   activation: Tanh
 
 train:
-  epoch: 100
+  epoch: 200
   early_stop: 10
   path: checkpoint
-  is_gpu: False
+  is_gpu: True
 
 optim:
   name: RMSprop
@@ -53,5 +61,5 @@ optim:
   clip_norm: 200
 
 resume:
-  state: False
-  path: ./checkpoint
+  state: True
+  path: ./checkpoint/backups/2speaker_backup/DeepClustering_config/last.pt
