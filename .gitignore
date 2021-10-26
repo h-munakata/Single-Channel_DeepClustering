@@ -1,0 +1,7 @@
+__pycache__
+.vscode
+checkpoint/*
+model/__pycache__
+scp/*
+separated
+figure.png

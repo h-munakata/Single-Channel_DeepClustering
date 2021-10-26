@@ -1,0 +1,41 @@
+device:
+  gpu: True
+  cuda: [0]
+
+seed: 46
+sampling_rate: &sr 8000 
+max_length: 10 # (second)
+
+HyperParams:
+  D: 40
+  hidden_size: 600
+  num_layers: 2
+  stft_ms: 32
+  sr: *sr
+  activation: "Tanh"
+  dropout: 0.0
+  bidirectional: True
+
+threshold: -40
+
+dataloader:
+  batch_size: 25
+  num_workers: 20
+  shuffle: true
+
+optimizer:
+  name: Adam
+  HyperParams:
+    lr: 1.0e-3
+    weight_decay: 0
+  clipping_norm:
+    max_norm: 5
+
+resume:
+  state: False
+  path: ./checkpoint/xxx/last.pt
+  load_optim: True
+
+stop:
+  early_stop: 10
+  max_epoch: 100
